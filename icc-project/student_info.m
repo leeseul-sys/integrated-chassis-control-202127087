@@ -1,0 +1,2 @@
+STUDENT.ID   = '202127087';
+STUDENT.NAME = '이슬';
