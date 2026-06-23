@@ -39,6 +39,8 @@ ctrl_coordinator:	actuator allocation |	steerAngle 제한, Fx_total 60:40 제동
 2.1 사용한 plant 단순화
 최종 검증 plant는 과제에서 제공된 BMW_5 계열 14-DOF 차량 plant를 대상으로 한다. 그러나 제어기 설계와 초기 gain 산정 단계에서는 횡방향 동역학을 2-DOF linear bicycle model로 단순화하였다. Bicycle model은 횡방향 속도 v_y와 yaw rate r을 상태로 두고, 전륜 조향각 δ를 입력으로 사용한다. 이 모델은 roll, pitch, suspension, 비선형 타이어 포화는 직접 포함하지 않지만 yaw rate 응답과 선형 소슬립 영역의 횡방향 안정성을 해석하기에 적절하다.
 종방향 제어 설계는 차량 질량 m을 갖는 1차 종방향 운동식 F_x = m a_x를 기본으로 하였다. 수직방향 CDC 설계는 각 바퀴별 sprung/unsprung 속도와 suspension travel을 이용하는 quarter-car 관점의 semi-active damping 구조로 단순화하였다.
+
+
 2.2 State-space 표현
 횡방향 bicycle model의 상태, 입력, 출력은 다음과 같이 정의하였다.
 x = [v_y; r]
@@ -64,6 +66,8 @@ B = [C_f/m;
 
 C = [0 1]   % yaw rate output 기준
 D = 0
+
+
 2.3 가정 + 한계
 •	제어 설계 단계에서는 종방향 속도 V_x를 일정한 scheduling 변수로 가정하였다.
 •	타이어는 소슬립 영역에서 선형 cornering stiffness 모델을 따른다고 가정하였다.
@@ -72,6 +76,8 @@ D = 0
 •	종방향 제어는 F_x = m a_x 기반의 lumped mass 모델을 사용하였다.
 •	CDC 수직방향 제어는 4개 quarter-car의 sprung/unsprung velocity와 travel을 독립적으로 사용하였다.
 •	14-DOF plant의 roll, pitch, tire saturation, load transfer, suspension geometry는 설계 모델에는 직접 포함하지 않고 최종 simulation에서 검증한다.
+
+
 3. 제어기 설계
 3.1 ctrl_lateral — AFS + ESC
 설계 목표
@@ -102,6 +108,8 @@ LIM.MAX_YAW_MOMENT_RATE = 30000;
 •	lowSpeedScale과 highSpeedScale을 이용해 speed scheduling을 적용한다.
 •	|slipAngle| > betaTh이면 Mz_beta = -Kbeta betaExcess sign(slipAngle)을 계산한다.
 •	steerAngle과 yawMoment는 saturation 및 rate limit을 거친다.
+
+
 3.2 ctrl_longitudinal — 속도 + ABS
 설계 목표
 •	vxRef를 추종하여 목표 속도 또는 감속 profile을 구현한다.
@@ -130,6 +138,8 @@ LIM.SLIP_RATIO_LIM  = 0.15;
 •	accelSat - accelRaw 오차를 이용하여 anti-windup을 수행한다.
 •	accelCmd 변화량은 maxJerk*dt로 제한한다.
 •	제동 중 |slipRatio| > slipLim이면 brakeForce에 slipScale을 곱해 ABS modulation을 수행한다.
+
+
 3.3 ctrl_vertical — CDC
 설계 목표
 •	body bounce를 억제하여 승차감을 개선한다.
@@ -151,6 +161,8 @@ CTRL.VER.cRateMax   = 30000;
 •	for i=1:4 loop로 FL, FR, RL, RR damping을 독립 계산한다.
 •	dampingRaw와 dampingCoeff는 모두 cMin~cMax로 saturation한다.
 •	ctrlState.prevDamping으로 damping rate limit을 적용한다.
+
+
 3.4 ctrl_coordinator — Actuator Allocation
 설계 목표
 •	ctrl_lateral의 steerAngle을 actuator steering command로 전달한다.
@@ -176,6 +188,8 @@ T_side_rear  = (1 - yawFrontBias) * sideTotalTorque
 •	yawMoment > 0이면 FL, RL에 추가 제동이 더해진다.
 •	yawMoment < 0이면 FR, RR에 추가 제동이 더해진다.
 •	dampingCoeff는 coordinator 출력 actuatorCmd.damping 및 actuatorCmd.dampingCoeff로 전달된다.
+
+
 4. 시뮬레이션 결과
 4.1 P1 시나리오 benchmark — 베이스라인 vs 본인 설계
 아래 표에서 OFF 값은 과제 prompt에 제시된 benchmark 기준값이며, ON 값은 로컬 MATLAB 환경에서 run('scripts/run_icc_benchmark.m') 및 run('scripts/grade.m') 실행 후 기입해야 한다. 현재 문서에서는 코드 구현 확인이 완료된 상태이며, 실제 수치 검증은 로컬 Simulink/14-DOF plant 실행 결과로 대체한다.
@@ -193,6 +207,8 @@ D1 integrated	sideSlipMax [deg]	7.65	로컬 실행 후 기입	계산
 % 실행 명령 예시
 run('scripts/run_icc_benchmark.m')
 run('scripts/grade.m')
+
+
 4.2 핵심 plot — A1 DLC
 A1 ISO 3888-1 double lane change 시나리오에서는 trajectory, yaw rate, side slip angle, ESC yaw moment를 함께 확인한다. plot 파일은 docs/figures 또는 figures 폴더에 저장한다.
 [r_off, k_off] = run_icc_scenario('A1','14dof','Controller','off','SavePlot',false);
@@ -207,6 +223,8 @@ legend('off','on','ref'); axis equal; grid on;
 saveas(gcf, 'docs/figures/a1_trajectory.png');
 Figure 4.1 — A1 ISO 3888-1 DLC trajectory comparison: controller off vs on vs reference path.
 Figure 4.2 — A1 yaw rate response: reference, controller off, controller on.
+
+
 4.3 한 시나리오 deep dive — A7 brake-in-turn
 A7 brake-in-turn은 제동 중 횡방향 안정성이 동시에 요구되는 시나리오이므로 integrated chassis control의 효과가 가장 뚜렷하게 나타날 수 있다. 베이스라인에서는 sideSlipMax가 46.3 deg 수준으로 매우 커져 spin-out 경향이 나타난다. 본 설계에서는 slip angle이 beta threshold를 초과하는 순간 ctrl_lateral이 ESC yaw moment를 생성하고, ctrl_coordinator가 이를 좌우 차동 제동으로 변환한다. 동시에 ctrl_longitudinal은 slipRatio가 커질 때 brakeForce를 줄여 wheel lock을 완화한다.
 로컬 실행 후 분석할 항목은 다음과 같다.
@@ -214,21 +232,29 @@ A7 brake-in-turn은 제동 중 횡방향 안정성이 동시에 요구되는 시
 •	brakeTorque FL/FR/RL/RR의 좌우 비대칭 패턴 확인
 •	slipRatio가 limit를 초과한 구간에서 ABS modulation이 작동했는지 확인
 •	controller on에서 sideSlipMax와 LTR_max가 감소했는지 확인
+
+
 5. 분석 + 한계
 5.1 가장 성공적이었던 시나리오
 가장 큰 개선이 기대되는 시나리오는 A7 brake-in-turn이다. 이 시나리오는 제동과 선회가 동시에 발생하므로 종방향 ABS modulation과 횡방향 ESC yaw moment가 함께 작동한다. 제어기 OFF에서는 제동 중 lateral stability가 급격히 나빠져 side slip angle이 커질 수 있으나, 본 설계에서는 slip angle threshold 기반 ESC 개입과 slipRatio 기반 brakeForce modulation이 동시에 작동하여 spin-out을 억제할 수 있다.
+
+
 5.2 가장 부족했던 시나리오
 A4 steady-state circular driving에서는 understeer gradient가 기대와 다르게 나타날 수 있다. 본 제어기는 transient yaw rate tracking과 slip angle 제한에 초점을 두었기 때문에 steady-state cornering 특성을 직접 shaping하지 않는다. 또한 bicycle model 설계에서는 tire nonlinear saturation과 load transfer를 충분히 반영하지 않았으므로 14-DOF plant에서 steady-state understeer 특성이 차이를 보일 수 있다.
 •	가설 1: speed scheduling gain이 steady-state yaw rate gain을 과도하게 낮추었을 수 있다.
 •	가설 2: ESC threshold 기반 제어가 정상상태 선회에서는 개입하지 않아 understeer gradient 개선 효과가 제한적일 수 있다.
 •	가설 3: 14-DOF plant의 load transfer와 tire saturation이 설계 모델의 선형 가정과 다르다.
+
+
 5.3 만약 더 시간이 있었다면
 •	ctrl_lateral을 PID에서 LQR 또는 gain-scheduled LQR로 확장하여 yaw rate와 slip angle을 동시에 상태 feedback으로 제어한다.
 •	ESC yaw moment allocation을 단순 좌우 차동 제동이 아니라 WLS(weighted least squares) 기반 4륜 제동 분배로 확장한다.
 •	longitudinal ABS modulation에 wheel별 slipRatio를 사용하여 4륜 독립 brake torque 제한을 적용한다.
 •	vertical CDC 제어에서 sprung/unsprung velocity filtering을 적용하여 센서 노이즈와 chatter를 줄인다.
 •	A1, A3, A7 각각의 KPI 개선율을 기준으로 자동 gain sweep script를 작성한다.
-6. 참고문헌
+
+
+7. 참고문헌
 [1] ISO 3888-1:2018 — Passenger cars — Test track for a severe lane-change manoeuvre.
 [2] ISO 4138:2021 — Steady-state circular driving behaviour.
 [3] R. Rajamani, Vehicle Dynamics and Control, 2nd ed., Springer, 2012. §2.5 yaw rate response, §8 ESC.
@@ -243,6 +269,7 @@ ChatGPT를 학생 구현 코드의 구조 정리, MATLAB 오류 해설, TODO 항
 
 부록 B — 본인 sim_params.m 변경사항
 아래 값은 현재 구현 코드 기준의 권장 초기값이다. 실제 제출 전에는 로컬 simulation 결과에 따라 tuning 값을 수정하고 변경 이력을 남긴다.
+
 % ctrl_lateral
 CTRL.LAT.Kp      = 0.18;
 CTRL.LAT.Ki      = 0.04;
